@@ -11,6 +11,8 @@
 #include <projdefs.h>
 #include <queue.h>
 #include <semphr.h>
+#include <SPI.h>
+#include <MFRC522.h>
 
 
  
@@ -41,7 +43,10 @@
 MCUFRIEND_kbv tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
 
+int SS_PIN = 53;
+int RST_PIN = 49;
 
+MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 const int headLight1=40;
 const int headLight2=41;
@@ -79,7 +84,7 @@ const int Y_pin = A7; // analog pin connected to Y output
 
 int brakeLight=43;
 
-
+bool start = false;
 
 void setup() {
   // put your setup code here, to run once:
@@ -113,6 +118,11 @@ void setup() {
   tft.drawRect(0,0,480,320,WHITE);
   delay(1000);
 
+  SPI.begin();      // Initiate  SPI bus
+  mfrc522.PCD_Init();   // Initiate MFRC522
+  Serial.println("Approximate your card to the reader...");
+  Serial.println();
+    delay(1000);
 //  Serial.begin(9600);   // Initiate a serial communication
 //  SPI.begin();      // Initiate  SPI bus
 //  mfrc522.PCD_Init();   // Initiate MFRC522
@@ -122,9 +132,10 @@ void setup() {
   //pinMode(SW_pin, INPUT);
   //digitalWrite(SW_pin, HIGH);
 
-  //xTaskCreate(start,"StartEngine",100,NULL,1,NULL);
+ 
   
-
+     xTaskCreate(startEng,"startEngine",600,NULL,1,NULL);
+     
      xTaskCreate(control,"Drive",100,NULL,4,NULL);
      xTaskCreate(headLights,"headLights",100,NULL,3,NULL);
      xTaskCreate(dashboard,"dashboard",300,NULL,2,NULL);
@@ -162,43 +173,7 @@ void loop() {
 //  tft.print("Subscribe");
 //  delay(1000);
 
-//if ( ! mfrc522.PICC_IsNewCardPresent()) 
-//  {
-//    return;
-//  }
-//  // Select one of the cards
-//  if ( ! mfrc522.PICC_ReadCardSerial()) 
-//  {
-//    return;
-//  }
-//  //Show UID on serial monitor
-//  Serial.print("UID tag :");
-//  String content= "";
-//  byte letter;
-//  for (byte i = 0; i < mfrc522.uid.size; i++) 
-//  {
-//     Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-//     Serial.print(mfrc522.uid.uidByte[i], HEX);
-//     content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
-//     content.concat(String(mfrc522.uid.uidByte[i], HEX));
-//  }
-//  Serial.println();
-//  Serial.print("Message : ");
-//  content.toUpperCase();
-//  if (content.substring(1) == "27 28 21 34") //change here the UID of the card/cards that you want to give access
-//  {
-//    startEng = true;
-//    Serial.println("Authorized access");
-//    Serial.println();
-//    delay(3000);
-//  }
-// 
-// else   {
-//    Serial.println(" Access denied");
-//    delay(3000);
-//  }
-// 
-      
+ 
 
 }
 
@@ -235,12 +210,42 @@ void move(int x,int y){
       
 }
 
+void startEng(void *pvParameters){
+      TickType_t xLast = xTaskGetTickCount();
+  while(1){
+    if ( ! mfrc522.PICC_IsNewCardPresent()) 
+  {
+  }
+  // Select one of the cards
+  if ( ! mfrc522.PICC_ReadCardSerial()) 
+  {
+  }
+  if (mfrc522.uid.uidByte[0] == 39 && mfrc522.uid.uidByte[1] == 40 && mfrc522.uid.uidByte[2] == 33 && mfrc522.uid.uidByte[3] == 52) //change here the UID of the card/cards that you want to give access
+  {
+    start = true;
+    Serial.println("Authorized access");
+    Serial.println();
+    delay(1000);
+    return;
+  }
+ 
+ else   {
+    Serial.println("Access denied");
+    delay(3000);
+  }
+   Serial.print("sssss");
+  // vTaskDelayUntil(&xLast, pdMS_TO_TICKS(200));
 
+  }
+  
+}
 
 void dashboard(void *pvParameters){
     //LCD :::
     TickType_t xLast = xTaskGetTickCount();
-    while(1){
+   
+      while(1){
+         if(start){
               int chk = DHT.read11(tempSensor);
         //Read data and store it to variables hum and temp
         if(hum!=DHT.humidity || temp!=DHT.temperature){
@@ -276,16 +281,20 @@ void dashboard(void *pvParameters){
         tft.setTextColor(WHITE);
         tft.setTextSize(4);
         tft.print("Subscribe");
-        vTaskDelayUntil(&xLast, pdMS_TO_TICKS(80));
+       
     }
+     vTaskDelayUntil(&xLast, pdMS_TO_TICKS(80));
+    }
+    
 }
 
 
 
 void headLights(void *pvParameters){
    TickType_t xLast = xTaskGetTickCount();
-       
-  while(1){
+
+     while(1){
+       if(start){
     unsigned int AnalogValue;
     AnalogValue = analogRead(lightSensor);
     Serial.println(AnalogValue);
@@ -297,9 +306,11 @@ void headLights(void *pvParameters){
       digitalWrite(headLight1,LOW);
       digitalWrite(headLight2,LOW); 
     }
-    vTaskDelayUntil(&xLast, pdMS_TO_TICKS(100));
+   
   }
-  
+   vTaskDelayUntil(&xLast, pdMS_TO_TICKS(100));
+  }
+ 
 }
 
 //to control the direction P D N R
@@ -308,6 +319,7 @@ void control(void *pvParameters){
       TickType_t xLast = xTaskGetTickCount();
 
   while(1){ 
+     if(start){
        // Clears the trigPin
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
@@ -327,6 +339,9 @@ void control(void *pvParameters){
     }
       move(analogRead(X_pin),analogRead(Y_pin));
       
-    vTaskDelayUntil(&xLast, pdMS_TO_TICKS(150));
+    
     }
+    vTaskDelayUntil(&xLast, pdMS_TO_TICKS(150));
+}
+  
 }

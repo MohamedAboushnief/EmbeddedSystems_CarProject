@@ -18,14 +18,14 @@
 #include <dht.h>
 #include <Adafruit_GFX.h>    
 #include <MCUFRIEND_kbv.h>
-//#include <list.h>
-//#include <mpu_wrappers.h>
-//#include <portable.h>
-//#include <portmacro.h>
-//#include <projdefs.h>
-//#include <queue.h>
-//#include <semphr.h>
-//#include <SPI.h>
+#include <list.h>
+#include <mpu_wrappers.h>
+#include <portable.h>
+#include <portmacro.h>
+#include <projdefs.h>
+#include <queue.h>
+#include <semphr.h>
+#include <SPI.h>
 #include <MFRC522.h>
 
 
@@ -100,8 +100,6 @@ const int Y_pin = A7; // analog pin connected to Y output
 int brakeLight=43;
 
 
-
- 
 void setup() 
 {
   Serial.begin(9600);   // Initiate a serial communication
@@ -123,24 +121,7 @@ void loop()
   {
     return;
   }
-  //Show UID on serial monitor
-  Serial.print("UID tag :");
-  String content= "";
-  byte letter;
-  for (byte i = 0; i < mfrc522.uid.size; i++) 
-  {
-     //Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-     Serial.print(mfrc522.uid.uidByte[i], HEX);
-     //content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
-     content.concat(String(mfrc522.uid.uidByte[i], HEX));
-  }
-  Serial.println();
-  Serial.print("Message : ");
-  content.toUpperCase();
-  Serial.println("vvvvvvsssssss");
-  Serial.println(content);
-  Serial.println("dxddddddddddd");
-  if (mfrc522.uid.uidByte[0], HEX == 27 && mfrc522.uid.uidByte[1], HEX == 28 && mfrc522.uid.uidByte[2], HEX == 21 && mfrc522.uid.uidByte[3], HEX == 34) //change here the UID of the card/cards that you want to give access
+  if (mfrc522.uid.uidByte[0] == 39 && mfrc522.uid.uidByte[1] == 40 && mfrc522.uid.uidByte[2] == 33 && mfrc522.uid.uidByte[3] == 52) //change here the UID of the card/cards that you want to give access
   {
     Serial.println("Authorized access");
     Serial.println();
