@@ -42,7 +42,7 @@
 
 MCUFRIEND_kbv tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
-
+String gear = "P";
 int SS_PIN = 53;
 int RST_PIN = 49;
 
@@ -86,9 +86,13 @@ int brakeLight=43;
 
 bool start = false;
 
+
+
+char command;
+
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(9600);
+  Serial1.begin(9600);
   pinMode(motorR1,OUTPUT);
   pinMode(motorR2,OUTPUT);
   pinMode(motorL1,OUTPUT);
@@ -105,15 +109,7 @@ void setup() {
   tft.begin(0x9481);
   tft.setRotation(1);
   tft.fillScreen(RED);
-//  tft.fillScreen(GREEN);
-//  tft.fillScreen(BLUE);
-//  tft.fillScreen(BLACK);
-  
 
-//  tft.setCursor(135,215);
-//  tft.setTextColor(WHITE);
-//  tft.setTextSize(4);
-//  tft.print("Subscribe");
 
   tft.drawRect(0,0,480,320,WHITE);
   delay(1000);
@@ -123,63 +119,27 @@ void setup() {
   Serial.println("Approximate your card to the reader...");
   Serial.println();
     delay(1000);
-//  Serial.begin(9600);   // Initiate a serial communication
-//  SPI.begin();      // Initiate  SPI bus
-//  mfrc522.PCD_Init();   // Initiate MFRC522
-//  Serial.println("Approximate your card to the reader...");
-//  Serial.println();
-  
-  //pinMode(SW_pin, INPUT);
-  //digitalWrite(SW_pin, HIGH);
+
 
  
-  
-     xTaskCreate(startEng,"startEngine",600,NULL,1,NULL);
-     
-     xTaskCreate(control,"Drive",100,NULL,4,NULL);
-     xTaskCreate(headLights,"headLights",100,NULL,3,NULL);
-     xTaskCreate(dashboard,"dashboard",300,NULL,2,NULL);
-  
+
+ xTaskCreate(startEng,"startEngine",600,NULL,1,NULL);
+ xTaskCreate(control,"Drive",100,NULL,4,NULL);
+ xTaskCreate(headLights,"headLights",100,NULL,3,NULL);
+ xTaskCreate(dashboard,"dashboard",300,NULL,2,NULL);
+
  
 }
 
 
 
 void loop() {
-//    int chk = DHT.read11(tempSensor);
-//    //Read data and store it to variables hum and temp
-//    hum = DHT.humidity;
-//    temp= DHT.temperature;
-//    //Print temp and humidity values to serial monitor
-//    Serial.print("Humidity: ");
-//    Serial.print(hum);
-//    Serial.print(" %, Temp: ");
-//    Serial.print(temp);
-//    Serial.println(" Celsius");
-//    delay(2000); //Delay 2 sec.
-
-
-//      unsigned int AnalogValue;
-//      AnalogValue = analogRead(lightSensor);
-//      Serial.println(AnalogValue);
-
- // LCD :::
-//  tft.fillRect(80,200,321,60,BLACK);
-//  delay(1000);
-//  tft.fillRect(80,200,321,60,RED);
-//  tft.setCursor(135,215);
-//  tft.setTextColor(WHITE);
-//  tft.setTextSize(4);
-//  tft.print("Subscribe");
-//  delay(1000);
-
- 
-
+    
 }
 
-void move(int x,int y){
 
-      if(x>=800  && !brake){
+void move(char command){
+      if(command=='F'  && !brake && gear=="D"){
         digitalWrite(motorR1,HIGH);
         digitalWrite(motorR2,LOW);
         analogWrite(speedR,100);
@@ -189,7 +149,7 @@ void move(int x,int y){
         digitalWrite(brakeLight,LOW);
 
       }
-      else if(x<=100 ){
+      else if(command == 'B' && gear == "R" ){
         digitalWrite(motorR1,LOW);
         digitalWrite(motorR2,HIGH);
         analogWrite(speedR,100);
@@ -197,6 +157,22 @@ void move(int x,int y){
         digitalWrite(motorL2,LOW);
         analogWrite(speedL,100);
       }
+      else if(command == 'L' && gear == "D"){
+        digitalWrite(motorR1,LOW);
+        digitalWrite(motorR2,HIGH);
+        digitalWrite(motorL1,LOW);
+        digitalWrite(motorL2,HIGH);
+        analogWrite(speedL,100);
+      }
+      else if(command == 'R' && gear == "D" ){
+        digitalWrite(motorR1,HIGH);
+        digitalWrite(motorR2,LOW);
+        analogWrite(speedR,100);
+        digitalWrite(motorL1,HIGH);
+        digitalWrite(motorL2,LOW);
+      }
+      
+      
       else{
         digitalWrite(motorR1,LOW);
         digitalWrite(motorR2,LOW);
@@ -209,6 +185,7 @@ void move(int x,int y){
       }
       
 }
+
 
 void startEng(void *pvParameters){
       TickType_t xLast = xTaskGetTickCount();
@@ -231,10 +208,8 @@ void startEng(void *pvParameters){
  
  else   {
     Serial.println("Access denied");
-    delay(3000);
+    delay(1000);
   }
-   Serial.print("sssss");
-  // vTaskDelayUntil(&xLast, pdMS_TO_TICKS(200));
 
   }
   
@@ -297,7 +272,7 @@ void headLights(void *pvParameters){
        if(start){
     unsigned int AnalogValue;
     AnalogValue = analogRead(lightSensor);
-    Serial.println(AnalogValue);
+    //Serial.println(AnalogValue);
     if(AnalogValue>500){
       digitalWrite(headLight1,HIGH);
       digitalWrite(headLight2,HIGH); 
@@ -313,13 +288,17 @@ void headLights(void *pvParameters){
  
 }
 
+void forward(){
+  
+}
+
 //to control the direction P D N R
 void control(void *pvParameters){
-  //Serial.println("D is running Driving");
-      TickType_t xLast = xTaskGetTickCount();
+
+  TickType_t xLast = xTaskGetTickCount();
 
   while(1){ 
-     if(start){
+    if(start){
        // Clears the trigPin
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
@@ -337,11 +316,33 @@ void control(void *pvParameters){
     else{
       brake = false;
     }
-      move(analogRead(X_pin),analogRead(Y_pin));
+    if(Serial1.available()>0){
+      command = Serial1.read();
+      //Serial.println(command);
+      move(command);
+
+    }
+    setGear(analogRead(X_pin),analogRead(Y_pin));
       
     
-    }
-    vTaskDelayUntil(&xLast, pdMS_TO_TICKS(150));
+    
+   }
+   vTaskDelayUntil(&xLast, pdMS_TO_TICKS(20));
 }
   
+}
+
+void setGear(int x,int y){
+  if(x> 800){
+    gear = "D";
+  }
+  if(x< 100){
+    gear = "R";
+  }
+  if(y> 800){
+    gear = "N";
+  }
+  if(y< 100){
+    gear = "P";
+  }
 }
